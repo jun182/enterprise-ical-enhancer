@@ -62,15 +62,30 @@ def main():
   
   days_to_generate = 1  # Default to 1 day (just the specified date)
   
+  # Ask about progressive reduction if generating multiple days
+  progressive_reduction = False
   if multi_day:
     # Ask how many additional days
     try:
       additional_days_input = input("How many additional days do you want to add events for? [0]: ")
       additional_days = 0 if additional_days_input == "" else int(additional_days_input)
       days_to_generate = 1 + additional_days  # The specified day plus additional days
+      
+      # Ask about progressive reduction if generating more than 2 days
+      if days_to_generate > 2:
+        progressive_reduction = ask_yes_no_question("Progressively reduce events for later days (70%/50%/20% after day 2)?")
     except ValueError:
       print("Invalid input. Defaulting to 1 day.")
       days_to_generate = 1
+
+  # Define scaling factors for different days (only used if progressive_reduction is True)
+  event_scaling_factors = {
+    0: 1.0,  # First day - 100% events
+    1: 1.0,  # Second day - 100% events
+    2: 0.7,  # Third day - 70% events
+    3: 0.5,  # Fourth day - 50% events
+    4: 0.2,  # Fifth day (Friday) - 20% events
+  }
   
   # Look for CSV files in the current directory
   csv_files = find_csv_files()
@@ -121,7 +136,14 @@ def main():
     # Calculate the current date
     current_date = datetime.date(year, month, day) + datetime.timedelta(days=day_offset)
     
+    # Get scaling factor for this day (if progressive reduction is enabled)
+    scaling_factor = 1.0
+    if progressive_reduction and day_offset > 1:
+        scaling_factor = event_scaling_factors.get(day_offset, 0.2)  # Default to 20% for any day beyond our mapping
+    
     print(f"\nGenerating events for {current_date.strftime('%Y-%m-%d')}:")
+    if progressive_reduction and day_offset > 1:
+        print(f"Event density: {int(scaling_factor * 100)}% (progressive reduction enabled)")
     
     # Generate random end of workday (18:00 ± 1 hour in 15-min increments)
     possible_end_times = [
@@ -139,11 +161,24 @@ def main():
     previous_end_time = None
     previous_start_time = None
     
-    # Target event count (9-15)
-    target_event_count = random.randint(9, 15)
-    
+    # Target event count with scaling if enabled
+    base_target = random.randint(9, 15)
+    if progressive_reduction and day_offset > 1:
+        target_event_count = max(3, int(base_target * scaling_factor))  # Ensure at least 3 events
+    else:
+        target_event_count = base_target
+        
     # First pass: create main events
     while True:
+      # For progressive reduction, we'll also modify the chance of adding a new event
+      if progressive_reduction and day_offset > 1:
+          # Skip this iteration with probability (1-scaling_factor) after we have at least 3 events
+          if event_count >= 3 and random.random() > scaling_factor:
+              # Either break the loop or continue with reduced probability
+              if random.random() > scaling_factor:
+                  break
+              continue
+
       if event_count == 0:
         # For the first event, randomize start time
         possible_times = [(7, 45), (8, 0), (8, 15), (8, 30), (8, 45), (9, 0)]
@@ -181,10 +216,14 @@ def main():
 
       # Generate random duration - bias toward shorter events
       # 70% chance of 30-90 minutes, 30% chance of 90-240 minutes
-      if random.random() < 0.7:
-        duration_minutes = random.randrange(30, 91, 15)  # 30-90 minutes
+      if progressive_reduction and day_offset > 1 and random.random() > scaling_factor:
+          duration_minutes = random.randrange(30, 61, 15)  # Only short events for later days
       else:
-        duration_minutes = random.randrange(90, 241, 15)  # 90-240 minutes
+          # Regular duration logic
+          if random.random() < 0.7:
+              duration_minutes = random.randrange(30, 91, 15)  # 30-90 minutes
+          else:
+              duration_minutes = random.randrange(90, 241, 15)  # 90-240 minutes
       
       # Create datetime object for the end time
       end_time = start_time + datetime.timedelta(minutes=duration_minutes)
