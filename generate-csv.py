@@ -231,10 +231,10 @@ def main():
     if use_pdf and pdf_text:
         # Get desired number of AI-enhanced tasks
         try:
-            num_tasks = int(input("How many AI-enhanced tasks would you like to generate? [20]: ") or "20")
+            num_tasks = int(input("How many AI-enhanced tasks would you like to generate? [50]: ") or "50")
         except ValueError:
-            print("Invalid number, using default of 20")
-            num_tasks = 20
+            print("Invalid number, using default of 50")
+            num_tasks = 50
         
         # Generate AI tasks based on PDF content
         print(f"Generating {num_tasks} AI-enhanced tasks based on PDF content...")
