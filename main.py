@@ -1,6 +1,7 @@
 import datetime
 import random
 import csv
+import os
 
 def generate_ics_event(start_time, end_time, summary):
   """Generates an ics event string."""
@@ -29,6 +30,18 @@ def get_event_titles_from_csv(csv_path):
     print(f"Error reading CSV: {e}")
     return []
 
+def ask_yes_no_question(question, default="y"):
+    """Ask a yes/no question with default 'y' when pressing enter."""
+    response = input(f"{question} [{default}]: ").strip().lower()
+    if response == "":
+        return default == "y"
+    return response.startswith("y")
+
+def find_csv_files():
+    """Find CSV files in the current directory."""
+    csv_files = [f for f in os.listdir() if f.endswith('.csv')]
+    return csv_files
+
 def main():
   """Generates an ics file with events filling a workday."""
 
@@ -44,17 +57,43 @@ def main():
   day_input = input(f"Enter day [{today.day}]: ")
   day = today.day if day_input == "" else int(day_input)
   
-  # Ask for CSV file or a single event title
-  csv_path = input("Enter path to CSV file with event titles (or press Enter to enter a single title): ")
-  
-  if csv_path.strip():
-    titles = get_event_titles_from_csv(csv_path)
-    if not titles:
-      summary = input("No titles found or error reading CSV. Enter event title: ")
-      titles = [summary]
+  # Look for CSV files in the current directory
+  csv_files = find_csv_files()
+  selected_csv = None
+
+  if csv_files:
+    print(f"Found {len(csv_files)} CSV file(s)")
+    
+    # Cycle through CSV files until user selects one
+    i = 0
+    while selected_csv is None and i < len(csv_files) * 2:  # Limit cycles to avoid infinite loop
+      current_csv = csv_files[i % len(csv_files)]
+      if ask_yes_no_question(f"Use '{current_csv}'?"):
+        selected_csv = current_csv
+        break
+      else:
+        i += 1
+        
+        # After cycling through all files once, confirm if we should continue
+        if i > 0 and i % len(csv_files) == 0:
+          if not ask_yes_no_question("Check CSV files again?"):
+            break
+    
+    if selected_csv:
+      csv_path = selected_csv
+      print(f"Using '{csv_path}'")
+      titles = get_event_titles_from_csv(csv_path)
+      if not titles:
+        summary = input("No titles found or error reading CSV. Enter event title: ")
+        titles = [summary]
+      else:
+        print(f"Loaded {len(titles)} event titles from CSV")
     else:
-      print(f"Loaded {len(titles)} event titles from CSV")
+      summary = input("Enter event title: ")
+      titles = [summary]
   else:
+    # No CSV files found
+    print("No CSV files found in the current directory.")
     summary = input("Enter event title: ")
     titles = [summary]
   
