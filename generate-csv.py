@@ -26,30 +26,37 @@ def setup_genai_api():
     
     genai.configure(api_key=api_key)
     
-    # Try to list available models
+    # Use the recommended model directly
     try:
-        available_models = [m.name for m in genai.list_models()]
-        print("Available models:", available_models)
-        
-        # Look for Gemini Pro models
-        gemini_models = [m for m in available_models if "gemini" in m.lower() and "pro" in m.lower()]
-        
-        if gemini_models:
-            model_name = gemini_models[0]
-            print(f"Using model: {model_name}")
-            return genai.GenerativeModel(model_name)
-        else:
-            # Fall back to a standard name format
-            model_name = "gemini-1.5-pro"  # Updated model name
-            print(f"No Gemini Pro models found. Trying with: {model_name}")
-            return genai.GenerativeModel(model_name)
+        # Try the recommended model first
+        model_name = "gemini-1.5-flash"
+        print(f"Using model: {model_name}")
+        return genai.GenerativeModel(model_name)
     
     except Exception as e:
-        print(f"Error listing models: {e}")
-        # Try with the latest model name
-        model_name = "gemini-1.5-pro"  # Updated model name
-        print(f"Falling back to model: {model_name}")
-        return genai.GenerativeModel(model_name)
+        print(f"Error with recommended model: {e}")
+        
+        # Try to list available models as fallback
+        try:
+            print("Attempting to list available models...")
+            available_models = [m.name for m in genai.list_models()]
+            print("Available models:", available_models)
+            
+            # Look for any Gemini models
+            gemini_models = [m for m in available_models if "gemini" in m.lower()]
+            
+            if gemini_models:
+                model_name = gemini_models[0]
+                print(f"Using available model: {model_name}")
+                return genai.GenerativeModel(model_name)
+            else:
+                print("No Gemini models found. Please check your API key permissions.")
+                return None
+        
+        except Exception as e2:
+            print(f"Error listing models: {e2}")
+            print("Unable to initialize model. Please check your API key and permissions.")
+            return None
 
 def generate_tasks(model, task_type, num_tasks=20):
     """Generate task titles using Google's Generative AI."""
