@@ -1,4 +1,4 @@
-# enterprise-ical-productivity-enhancer
+# enterprise-ical-enhancer
 
 ## Introduction
 
