@@ -62,8 +62,10 @@ def main():
   
   days_to_generate = 1  # Default to 1 day (just the specified date)
   
-  # Ask about progressive reduction if generating multiple days
+  # Initialize pattern variables
   progressive_reduction = False
+  week_pattern = False
+  
   if multi_day:
     # Ask how many additional days
     try:
@@ -71,20 +73,45 @@ def main():
       additional_days = 0 if additional_days_input == "" else int(additional_days_input)
       days_to_generate = 1 + additional_days  # The specified day plus additional days
       
-      # Ask about progressive reduction if generating more than 2 days
+      # Ask about distribution patterns if generating multiple days
       if days_to_generate > 2:
-        progressive_reduction = ask_yes_no_question("Progressively reduce events for later days (70%/50%/20% after day 2)?")
+        # Ask about distribution pattern options
+        print("\nSelect event distribution pattern:")
+        print("1. Even distribution (same number of events each day)")
+        print("2. Progressive reduction (fewer events on later days)")
+        print("3. Workweek pattern (M:80%, Tu:100%, W:90%, Th:100%, F:60%)")
+        
+        pattern_choice = input("Enter choice [1]: ").strip()
+        
+        if pattern_choice == "2":
+          progressive_reduction = True
+          print("Using progressive reduction pattern (70%/50%/20% after day 2)")
+        elif pattern_choice == "3" and days_to_generate >= 5:
+          week_pattern = True
+          print("Using workweek pattern (M:80%, Tu:100%, W:90%, Th:100%, F:60%)")
+        else:
+          print("Using even distribution")
     except ValueError:
       print("Invalid input. Defaulting to 1 day.")
       days_to_generate = 1
 
-  # Define scaling factors for different days (only used if progressive_reduction is True)
-  event_scaling_factors = {
+  # Define scaling factors for different days
+  # Progressive reduction pattern
+  progressive_scaling_factors = {
     0: 1.0,  # First day - 100% events
     1: 1.0,  # Second day - 100% events
     2: 0.7,  # Third day - 70% events
     3: 0.5,  # Fourth day - 50% events
     4: 0.2,  # Fifth day (Friday) - 20% events
+  }
+  
+  # Workweek pattern
+  weekday_scaling_factors = {
+    0: 0.8,  # Monday - 80% events
+    1: 1.0,  # Tuesday - 100% events
+    2: 0.9,  # Wednesday - 90% events
+    3: 1.0,  # Thursday - 100% events
+    4: 0.6,  # Friday - 60% events
   }
   
   # Look for CSV files in the current directory
@@ -136,14 +163,19 @@ def main():
     # Calculate the current date
     current_date = datetime.date(year, month, day) + datetime.timedelta(days=day_offset)
     
-    # Get scaling factor for this day (if progressive reduction is enabled)
+    # Get scaling factor for this day
     scaling_factor = 1.0
     if progressive_reduction and day_offset > 1:
-        scaling_factor = event_scaling_factors.get(day_offset, 0.2)  # Default to 20% for any day beyond our mapping
+        scaling_factor = progressive_scaling_factors.get(day_offset, 0.2)  # Default to 20% for days beyond mapping
+    elif week_pattern:
+        scaling_factor = weekday_scaling_factors.get(day_offset % 5, 1.0)  # Use modulo to repeat pattern for weeks
     
     print(f"\nGenerating events for {current_date.strftime('%Y-%m-%d')}:")
     if progressive_reduction and day_offset > 1:
         print(f"Event density: {int(scaling_factor * 100)}% (progressive reduction enabled)")
+    elif week_pattern:
+        weekday_name = current_date.strftime('%A')
+        print(f"Event density: {int(scaling_factor * 100)}% ({weekday_name} - workweek pattern)")
     
     # Generate random end of workday (18:00 ± 1 hour in 15-min increments)
     possible_end_times = [
